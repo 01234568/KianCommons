@@ -16,12 +16,61 @@ namespace KianCommons {
     }
 
     public static class NetUtil {
-        public static Dictionary<string, int> kTags = ReflectionHelpers.GetFieldValue<NetInfo>("kTags") as Dictionary<string, int>;
+        public static Dictionary<string, int> kTags = LoadKnownTags();
+
+        private static Dictionary<string, int> LoadKnownTags() {
+            var field = ReflectionHelpers.GetField(typeof(NetInfo), "kTags", throwOnError: false);
+            if (field?.GetValue(null) is Dictionary<string, int> tagsFromField) {
+                return tagsFromField;
+            }
+
+            var tags = new Dictionary<string, int>();
+            int prefabCount = PrefabCollection<NetInfo>.PrefabCount();
+            for (uint i = 0; i < prefabCount; ++i) {
+                var info = PrefabCollection<NetInfo>.GetPrefab(i);
+                if (info == null) {
+                    continue;
+                }
+
+                AddTags(tags, info.m_tags);
+                if (info.m_nodes != null) {
+                    foreach (var node in info.m_nodes) {
+                        if (node == null) {
+                            continue;
+                        }
+
+                        AddTags(tags, node.m_tagsRequired);
+                        AddTags(tags, node.m_tagsForbidden);
+                    }
+                }
+            }
+
+            Log.Info($"NetUtil.LoadKnownTags fallback collected {tags.Count} tags from loaded prefabs.", false);
+            return tags;
+        }
+
+        private static void AddTags(Dictionary<string, int> knownTags, IEnumerable<string> tags) {
+            if (knownTags == null || tags == null) {
+                return;
+            }
+
+            foreach (string tag in tags) {
+                if (string.IsNullOrEmpty(tag) || knownTags.ContainsKey(tag)) {
+                    continue;
+                }
+
+                knownTags.Add(tag, knownTags.Count);
+            }
+        }
 
         /// <summary>
         /// WARNING: low performance!
         /// </summary>
         public static string[] GetTags(DynamicFlags flags) {
+            if (kTags == null || kTags.Count == 0) {
+                return Array.Empty<string>();
+            }
+
             List<string> tags = new();
             foreach (string tag in kTags.Keys) {
                 var flag = NetInfo.GetFlags(new[] { tag });
@@ -878,4 +927,3 @@ namespace KianCommons {
         IEnumerator IEnumerable.GetEnumerator() => this;
     }
 }
-
