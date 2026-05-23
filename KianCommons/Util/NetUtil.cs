@@ -66,14 +66,14 @@ namespace KianCommons {
         /// <summary>
         /// WARNING: low performance!
         /// </summary>
-        public static string[] GetTags(DynamicFlags flags) {
+        public static string[] GetTags(DynamicFlags<NetInfo> flags) {
             if (kTags == null || kTags.Count == 0) {
-                return Array.Empty<string>();
+                return new string[0];
             }
 
             List<string> tags = new();
             foreach (string tag in kTags.Keys) {
-                var flag = NetInfo.GetFlags(new[] { tag });
+                var flag = DynamicFlags<NetInfo>.GetFlags(new[] { tag });
                 if (!(flag & flags).IsEmpty) {
                     tags.Add(tag);
                 }
